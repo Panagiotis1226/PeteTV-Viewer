@@ -24,6 +24,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
@@ -51,6 +52,7 @@ public class PlayerActivity extends AppCompatActivity {
         long startMs;
         String userAgent;
         boolean live;
+        String buffer = "normal";
     }
 
     /** Handed over by {@link PeteTVPlugin#play}. */
@@ -106,6 +108,7 @@ public class PlayerActivity extends AppCompatActivity {
                 .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
 
         player = new ExoPlayer.Builder(this, renderers)
+                .setLoadControl(loadControl(pl.buffer))
                 .setMediaSourceFactory(new DefaultMediaSourceFactory(http, extractors))
                 .build();
         player.addListener(new Player.Listener() {
@@ -139,6 +142,25 @@ public class PlayerActivity extends AppCompatActivity {
             view.setShowRewindButton(false);
         }
         load(pl.index, pl.startMs);
+    }
+
+    /**
+     * Settings → Buffer size. min/max = how much to keep buffered ahead; playback = how much is
+     * needed before starting; rebuffer = how much after a stall. Memory stays capped by Media3's
+     * default byte limit (size wins over time), so "Very large" can't exhaust a TV stick's RAM.
+     */
+    private static DefaultLoadControl loadControl(String size) {
+        int min, max, start, rebuffer;
+        switch (size == null ? "normal" : size) {
+            case "small": min = 8000; max = 20000; start = 1000; rebuffer = 2000; break;
+            case "large": min = 60000; max = 120000; start = 3000; rebuffer = 8000; break;
+            case "xlarge": min = 120000; max = 240000; start = 5000; rebuffer = 15000; break;
+            default: min = 30000; max = 50000; start = 2500; rebuffer = 5000;
+        }
+        return new DefaultLoadControl.Builder()
+                .setBufferDurationsMs(min, max, start, rebuffer)
+                .setPrioritizeTimeOverSizeThresholds(false)
+                .build();
     }
 
     private void load(int index, long startMs) {

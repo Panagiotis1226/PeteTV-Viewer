@@ -15,6 +15,8 @@ export default defineConfig({
     assetsInlineLimit: 0,
     chunkSizeWarningLimit: 700,
   },
+  // Classic (non-module) workers for older TV WebViews.
+  worker: { format: 'iife' },
   server: {
     proxy: { '/api': 'http://localhost:8080' },
   },

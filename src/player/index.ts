@@ -1,6 +1,6 @@
 import { isNative, Native } from '../platform';
 import { push } from '../router';
-import { recordHistory, getItem, historyEntry } from '../store';
+import { recordHistory, getItem, historyEntry, state } from '../store';
 import type { PlayRequest, PlayResult } from '../types';
 
 /** Called by both the native and the web player when playback ends. */
@@ -27,6 +27,7 @@ export function onPlaybackEnded(req: PlayRequest, res: PlayResult) {
 }
 
 export async function play(req: PlayRequest) {
+  req = { ...req, buffer: state.settings.buffer };
   if (isNative) {
     // Keep the bridge payload small: only send a window of channels around the selection.
     const W = 300;

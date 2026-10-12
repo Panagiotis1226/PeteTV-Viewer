@@ -8,6 +8,9 @@ import { onPlaybackEnded } from './index';
 
 type Engine = { destroy(): void };
 
+/** Seconds of video to buffer ahead per Settings → Buffer size. */
+const BUFFER_SECONDS = { small: 8, normal: 30, large: 60, xlarge: 120 } as const;
+
 function streamType(url: string): 'hls' | 'ts' | 'file' {
   const path = url.split('?')[0].toLowerCase();
   if (path.endsWith('.m3u8') || path.includes('.m3u8') || /[?&](type|output)=(m3u8|hls)/i.test(url)) return 'hls';
@@ -33,7 +36,11 @@ async function attach(video: HTMLVideoElement, rawUrl: string, ua: string | unde
     // Safari / iOS fall through to the native player.
     const Hls = (await import('hls.js')).default;
     if (Hls.isSupported() && !/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 30 });
+      const ahead = BUFFER_SECONDS[state.settings.buffer] ?? 30;
+      const hls = new Hls({
+        enableWorker: true, lowLatencyMode: false, backBufferLength: 30,
+        maxBufferLength: ahead, maxMaxBufferLength: ahead * 2, maxBufferSize: ahead * 2 * 1000 * 1000,
+      });
       hls.on(Hls.Events.ERROR, (_e, data) => {
         if (!data.fatal) return;
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
@@ -50,6 +57,9 @@ async function attach(video: HTMLVideoElement, rawUrl: string, ua: string | unde
     if (mpegts.getFeatureList().mseLivePlayback) {
       const p = mpegts.createPlayer({ type: 'mpegts', isLive: live, url }, {
         enableWorker: true, lazyLoad: false, liveBufferLatencyChasing: false, autoCleanupSourceBuffer: true,
+        // Small buffer: start as soon as data arrives. Larger: stash more before playing (smoother on bad Wi-Fi).
+        enableStashBuffer: state.settings.buffer !== 'small',
+        stashInitialSize: { small: 128, normal: 384, large: 1024, xlarge: 2048 }[state.settings.buffer] * 1024,
       });
       p.on(mpegts.Events.ERROR, (_t: string, detail: string) => onFatal('Stream error: ' + detail));
       p.attachMediaElement(video);

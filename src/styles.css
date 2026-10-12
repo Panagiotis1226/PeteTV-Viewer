@@ -215,6 +215,7 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.7rem; color: var(--muted); text-tran
 .mrow-name small { color: var(--muted); }
 .toggle { min-width: 7.5rem; }
 .manage-search { width: 16rem; }
+.manage .topbar { flex-wrap: wrap; }
 .toggle.on { border-color: var(--ok); }
 
 /* ---------- settings / forms ---------- */
@@ -242,6 +243,49 @@ details label { margin-top: 0.6rem; }
 .qr svg { width: 100%; height: 100%; display: block; }
 .steps { font-size: 1.25rem; line-height: 2; padding-left: 1.5rem; }
 .pin { font-size: 1.6rem; letter-spacing: 0.2em; color: #fbbf24; }
+
+/* ---------- TV guide ---------- */
+.guide .topbar { flex-wrap: wrap; }
+.g-cat { max-width: 18rem; padding: 0.45rem 0.8rem; font-size: 0.95rem; }
+.g-info { display: flex; gap: 1.2rem; align-items: flex-start; padding: 0 2rem 0.8rem; height: 8.5rem; flex-shrink: 0; overflow: hidden; }
+.g-info-logo { width: 9rem; height: 5.5rem; object-fit: contain; border-radius: var(--radius); background: var(--bg2); flex-shrink: 0; font-size: 1.4rem; }
+.g-info-text { min-width: 0; }
+.g-info h2 { margin: 0.15rem 0 0.25rem; text-transform: none; letter-spacing: 0; color: var(--text); font-size: 1.35rem; }
+.g-desc { margin: 0.35rem 0 0; color: #c9d1e4; font-size: 0.9rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.live-badge { background: var(--danger); color: white; border-radius: 0.3rem; padding: 0 0.4rem; margin-left: 0.6rem; font-size: 0.7rem; font-weight: 800; }
+.g-grid { --g-ch: 15rem; flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 1rem 1rem 2rem; }
+.g-ruler { display: flex; height: 2rem; flex-shrink: 0; }
+.g-ruler-ch { width: var(--g-ch); flex-shrink: 0; }
+.g-ruler-time { position: relative; flex: 1; border-bottom: 1px solid var(--line); }
+.g-ruler-time span { position: absolute; top: 0.3rem; padding-left: 0.4rem; border-left: 1px solid var(--line); color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.g-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.g-now { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--danger); z-index: 3; pointer-events: none; }
+.g-row { display: flex; height: 100%; gap: 0.3rem; }
+.g-ch {
+  width: calc(var(--g-ch) - 0.3rem); flex-shrink: 0; display: flex; align-items: center; gap: 0.6rem; text-align: left; cursor: pointer;
+  background: var(--bg2); border: 0; border-radius: 0.5rem; padding: 0 0.6rem; overflow: hidden;
+}
+.g-ch:focus { background: var(--accent); color: white; outline: none; }
+.g-ch-logo { width: 3.4rem; height: 2.4rem; object-fit: contain; flex-shrink: 0; border-radius: 0.3rem; font-size: 0.75rem; }
+.g-ch-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.95rem; }
+.g-ch .ch-num { width: 2rem; }
+.g-line { position: relative; flex: 1; min-width: 0; }
+.g-prog {
+  position: absolute; top: 0; bottom: 0; box-sizing: border-box; border: 0; border-right: 2px solid var(--bg);
+  background: var(--panel); border-radius: 0.4rem; padding: 0.3rem 0.6rem; text-align: left; cursor: pointer; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.g-prog.live { background: var(--panel2); }
+.g-prog.past { opacity: 0.6; }
+.g-prog.empty { color: var(--muted); background: var(--bg2); }
+.g-prog:hover { background: #283453; }
+.g-prog:focus { background: var(--accent); color: white; outline: none; opacity: 1; z-index: 2; }
+.g-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.95rem; }
+.g-time { color: var(--muted); font-size: 0.75rem; }
+.g-prog:focus .g-time { color: #fffc; }
+.modal { position: fixed; inset: 0; background: #000a; display: grid; place-items: center; z-index: 50; }
+.modal-box { background: var(--panel); border: 1px solid var(--line); border-radius: 1rem; padding: 1.6rem 2rem; max-width: 46rem; width: 90%; display: flex; flex-direction: column; gap: 0.7rem; }
+.modal-box h2 { margin: 0; text-transform: none; letter-spacing: 0; color: var(--text); font-size: 1.5rem; }
 
 /* ---------- player ---------- */
 .player { position: fixed; inset: 0; background: black; cursor: none; }
@@ -283,4 +327,7 @@ details label { margin-top: 0.6rem; }
   .phone-body { flex-direction: column; }
   .manage-list { padding: 0.4rem 0.6rem; }
   .mrow .btn.sm:nth-of-type(4) { display: none; }
+  .g-info { padding: 0 1rem 0.6rem; height: 7rem; }
+  .g-grid { --g-ch: 8rem; padding: 0 0.5rem 0.5rem; }
+  .g-ch-logo, .g-ch .ch-num { display: none; }
 }

@@ -127,6 +127,11 @@ export function setBackHandler(fn: () => void) {
   backHandler = fn;
 }
 export function goBack() {
+  // An open popup (e.g. guide programme details) closes first; it listens for 'petetv-back'.
+  if (document.querySelector('.modal')) {
+    document.dispatchEvent(new Event('petetv-back'));
+    return;
+  }
   backHandler();
 }
 

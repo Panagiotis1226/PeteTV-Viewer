@@ -4,7 +4,7 @@ import { hash } from '../util';
 
 /** Build a normalized library from raw M3U text. */
 export function buildM3ULibrary(playlistId: string, text: string): Library {
-  const { entries } = parseM3U(text);
+  const { entries, epgUrl } = parseM3U(text);
   const categories: Category[] = [];
   const catSeen = new Set<string>();
   const items: Item[] = [];
@@ -65,5 +65,5 @@ export function buildM3ULibrary(playlistId: string, text: string): Library {
   for (const id in episodes) {
     episodes[id].sort((a, b) => a.season - b.season || a.episode - b.episode);
   }
-  return { playlistId, loadedAt: Date.now(), categories, items, episodes };
+  return { playlistId, loadedAt: Date.now(), categories, items, episodes, epgUrl };
 }

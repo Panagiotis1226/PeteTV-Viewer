@@ -6,6 +6,7 @@ import { isNative } from './platform';
 import { WebPlayer } from './player/WebPlayer';
 import { pop, type Route, useRouter } from './router';
 import { AddPlaylist } from './screens/AddPlaylist';
+import { Guide } from './screens/Guide';
 import { Home } from './screens/Home';
 import { Manage, ManageItems } from './screens/Manage';
 import { MovieDetail } from './screens/MovieDetail';
@@ -26,6 +27,7 @@ function Screen({ route }: { route: Route }) {
     case 'manage': return <Manage kind={route.kind} />;
     case 'manageItems': return <ManageItems categoryId={route.categoryId} />;
     case 'phoneSetup': return <PhoneSetup />;
+    case 'guide': return <Guide />;
     case 'player': return <WebPlayer req={route.req} />;
   }
 }

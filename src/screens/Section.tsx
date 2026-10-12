@@ -7,6 +7,7 @@ import {
 } from '../store';
 import type { Item, Kind } from '../types';
 import { norm } from '../util';
+import { ensureEpg, fmtClock, nowNext } from '../epg';
 import { playLive } from './common';
 
 const TITLES: Record<Kind, string> = { live: 'Live TV', movie: 'Movies', series: 'Series' };
@@ -18,6 +19,11 @@ function useEpg(it: Item | null) {
   const [epg, setEpg] = useState<string | null>(null);
   useEffect(() => {
     setEpg(null);
+    const local = it && it.kind === 'live' ? nowNext(it) : [];
+    if (local.length) {
+      setEpg(local.map((p) => `${fmtClock(p[0])}  ${p[2]}`).join('\n'));
+      return;
+    }
     const x = xtreamFor();
     if (!it || it.kind !== 'live' || !x || it.xid === undefined) return;
     const t = setTimeout(() => {
@@ -28,12 +34,14 @@ function useEpg(it: Item | null) {
       }).catch(() => {});
     }, 600);
     return () => clearTimeout(t);
-  }, [it?.id]);
+  }, [it?.id, state.epg]);
   return epg;
 }
 
 export function Section({ kind }: { kind: Kind }) {
   const s = useStore();
+  // Use an already-downloaded guide for now/next (no network here; the Guide screen downloads it).
+  useEffect(() => { if (kind === 'live') ensureEpg({ network: false }); }, [kind]);
   const cats = useMemo(() => categoriesFor(kind), [s.library, s.prefs]);
   const [catId, setCatId] = useState<string>(ALL);
   const [query, setQuery] = useState('');
@@ -97,6 +105,7 @@ export function Section({ kind }: { kind: Kind }) {
           value={query}
           onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)}
         />
+        {kind === 'live' && <button data-nav class="btn" onClick={() => push({ name: 'guide' })}>📅 Guide</button>}
         <button data-nav class="btn" onClick={() => push({ name: 'manage', kind })}>☰ Edit</button>
       </header>
       <div class="split">

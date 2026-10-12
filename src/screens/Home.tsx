@@ -80,6 +80,7 @@ export function Home() {
       </div>
 
       <div class="actions">
+        <button data-nav class="btn" disabled={!lib} onClick={() => push({ name: 'guide' })}>📅 TV Guide</button>
         <button data-nav class="btn" onClick={() => push({ name: 'manage', kind: 'live' })}>☰ Hide &amp; reorder</button>
         <button data-nav class="btn" onClick={reload} disabled={!!s.loading}>⟳ Reload playlist</button>
         <button data-nav class="btn" onClick={() => push({ name: 'addPlaylist' })}>+ Add playlist</button>

@@ -12,6 +12,7 @@ export type Route =
   | { name: 'manage'; kind: Kind }
   | { name: 'manageItems'; categoryId: string }
   | { name: 'phoneSetup' }
+  | { name: 'guide' }
   | { name: 'player'; req: PlayRequest };
 
 interface Entry {

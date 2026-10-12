@@ -13,6 +13,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -57,6 +58,8 @@ const live = [];
 const names = { 1: ['CNN Test', 'BBC Test', 'Sky News Test'], 2: ['ESPN Test', 'Sky Sports Test', 'beIN Test'], 3: ['Cartoon Test', 'Nick Test'], 4: ['Hidden One', 'Hidden Two'] };
 let sid = 1;
 for (const [cid, list] of Object.entries(names)) for (const n of list) live.push({ num: sid, name: n, stream_type: 'live', stream_id: sid++, stream_icon: '', epg_channel_id: n.toLowerCase().replace(/\W+/g, '.'), category_id: cid });
+// No guide id: the app must match it to the guide by name ("US| Nick Test HD" in the XMLTV).
+live.find((c) => c.name === 'Nick Test').epg_channel_id = '';
 for (let i = 0; i < SIZE; i++) live.push({ num: sid, name: `Bulk Channel ${i + 1}`, stream_type: 'live', stream_id: sid++, stream_icon: '', category_id: String(100 + (i % 200)) });
 for (let i = 0; i < (SIZE ? 200 : 0); i++) liveCats.push({ category_id: String(100 + i), category_name: `Bulk Group ${i + 1}` });
 
@@ -81,9 +84,32 @@ function seriesInfo(id) {
   return { info: { name: s.name, plot: s.plot, genre: 'Testing', cast: 'Alice, Bob', rating: s.rating, releaseDate: s.releaseDate }, episodes };
 }
 
+/** XMLTV guide: 30-minute shows from 3h ago to 24h ahead for every named channel. */
+function xmltv() {
+  const fmt = (t) => new Date(t * 1000).toISOString().replace(/[-:T]/g, '').slice(0, 14) + ' +0000';
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const out = ['<?xml version="1.0" encoding="UTF-8"?>', '<tv generator-info-name="petetv-mock">'];
+  const chans = live.filter((c) => !c.name.startsWith('Bulk'));
+  for (const c of chans) {
+    const id = c.epg_channel_id || 'nick.alt';
+    const name = c.epg_channel_id ? c.name : `US| ${c.name} HD`;
+    out.push(`<channel id="${id}"><display-name>${esc(name)}</display-name></channel>`);
+  }
+  out.push('<channel id="hls.test"><display-name>HLS Test Channel</display-name></channel>');
+  const t0 = Math.floor(Date.now() / 1000 / 1800) * 1800 - 3 * 3600;
+  for (const id of [...chans.map((c) => c.epg_channel_id || 'nick.alt'), 'hls.test']) {
+    for (let i = 0; i < 54; i++) {
+      const s = t0 + i * 1800;
+      out.push(`<programme start="${fmt(s)}" stop="${fmt(s + 1800)}" channel="${id}"><title lang="en">${esc(`${id} Show ${i} & Co`)}</title><desc>Episode ${i} of a show on ${esc(id)}.</desc></programme>`);
+    }
+  }
+  out.push('</tv>');
+  return out.join('\n');
+}
+
 function m3u(host) {
   const base = `http://${host}`;
-  const lines = ['#EXTM3U'];
+  const lines = [`#EXTM3U url-tvg="${base}/epg.xml.gz"`];
   for (const c of live) {
     const cat = liveCats.find((x) => x.category_id === c.category_id);
     lines.push(`#EXTINF:-1 tvg-id="${c.epg_channel_id || ''}" tvg-name="${c.name}" tvg-logo="" group-title="${cat.category_name}",${c.name}`);
@@ -165,6 +191,15 @@ export function createMockServer() {
         }
         default: return json(res, []);
       }
+    }
+    if (p === '/xmltv.php') {
+      if (q.get('username') !== USER || q.get('password') !== PASS) { res.writeHead(401); return res.end(); }
+      res.writeHead(200, { 'Content-Type': 'application/xml' });
+      return res.end(xmltv());
+    }
+    if (p === '/epg.xml.gz') {
+      res.writeHead(200, { 'Content-Type': 'application/gzip' });
+      return res.end(zlib.gzipSync(xmltv()));
     }
     if (p === '/playlist.m3u') {
       res.writeHead(200, { 'Content-Type': 'audio/x-mpegurl' });

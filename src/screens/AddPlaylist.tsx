@@ -3,7 +3,7 @@ import { toast } from '../components/Toast';
 import { fetchText } from '../platform';
 import { XtreamClient } from '../providers/xtream';
 import { pop, resetTo } from '../router';
-import { addPlaylist, refreshLibrary, state } from '../store';
+import { addPlaylist, clearEpg, refreshLibrary, state } from '../store';
 import type { PlaylistSource } from '../types';
 import { normalizeServer, uid } from '../util';
 import { CUSTOM, presetFor, UA_PRESETS } from '../useragents';
@@ -13,7 +13,7 @@ type Tab = 'xtream' | 'm3u' | 'file';
 /** Shared by the form and the phone-setup flow. Validates and saves a playlist. */
 export async function savePlaylistFromInput(input: {
   id?: string; type: Tab; name?: string; url?: string; text?: string;
-  server?: string; username?: string; password?: string; userAgent?: string;
+  server?: string; username?: string; password?: string; userAgent?: string; epgUrl?: string;
 }): Promise<void> {
   const id = input.id || uid();
   const ua = input.userAgent?.trim() || undefined;
@@ -48,6 +48,11 @@ export async function savePlaylistFromInput(input: {
     if (!input.text || !/#EXTINF/i.test(input.text)) throw new Error('That file does not look like an M3U playlist');
     src = { id, type: 'm3u', name: input.name?.trim() || 'Uploaded playlist', text: input.text, userAgent: ua, createdAt: Date.now() };
   }
+  const epg = input.epgUrl?.trim();
+  if (epg && !/^https?:\/\//i.test(epg)) throw new Error('The TV guide URL must start with http:// or https://');
+  if (epg) src.epgUrl = epg;
+  // An edited playlist may point at a different guide: drop the cached one.
+  if (input.id) await clearEpg(id);
   await addPlaylist(src);
   // addPlaylist() only loads the library when it isn't cached; force a reload after an edit.
   if (input.id) await refreshLibrary();
@@ -64,6 +69,7 @@ export function AddPlaylist({ editId }: { editId?: string }) {
     url: existing?.url || '',
     userAgent: existing?.userAgent || '',
     text: existing?.text || '',
+    epgUrl: existing?.epgUrl || '',
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -143,6 +149,10 @@ export function AddPlaylist({ editId }: { editId?: string }) {
         {uaChoice === CUSTOM && (
           <label>Custom User-Agent<input data-nav {...bind('userAgent')} placeholder="e.g. MyPlayer/1.0" autoCapitalize="off" autoCorrect="off" spellcheck={false} /></label>
         )}
+        <label>
+          TV guide (XMLTV) URL — optional, {tab === 'xtream' ? 'the provider\'s guide is used by default' : 'used if the playlist doesn\'t name one'}
+          <input data-nav {...bind('epgUrl')} placeholder="http://…/xmltv.php or …/guide.xml.gz" inputMode="url" autoCapitalize="off" autoCorrect="off" spellcheck={false} />
+        </label>
         {err && <div class="banner error">{err}</div>}
         <div class="row gap">
           <button data-nav class="btn primary lg" type="submit" disabled={busy}>{busy ? 'Connecting…' : existing ? 'Save' : 'Add playlist'}</button>

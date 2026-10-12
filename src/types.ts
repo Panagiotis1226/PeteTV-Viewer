@@ -16,6 +16,8 @@ export interface PlaylistSource {
   password?: string;
   /** Optional User-Agent override sent to the provider */
   userAgent?: string;
+  /** Optional XMLTV guide URL (overrides the provider's / playlist's own) */
+  epgUrl?: string;
   createdAt: number;
 }
 
@@ -85,6 +87,8 @@ export interface Library {
   /** M3U-only: episodes grouped by series item id */
   episodes?: Record<string, Episode[]>;
   account?: AccountInfo;
+  /** M3U: guide URL from the #EXTM3U url-tvg / x-tvg-url header */
+  epgUrl?: string;
 }
 
 export interface AccountInfo {
@@ -92,6 +96,20 @@ export interface AccountInfo {
   expires?: number;
   maxConnections?: number;
   activeConnections?: number;
+}
+
+/** Parsed TV guide for one playlist, filtered to its channels. */
+export interface EpgData {
+  playlistId: string;
+  loadedAt: number;
+  source: string;
+  /** guide channel id -> programmes [start, stop, titleIdx, descIdx] sorted by start (epoch seconds) */
+  progs: Record<string, [number, number, number, number][]>;
+  /** de-duplicated titles/descriptions (guides repeat them constantly) */
+  strings: string[];
+  /** normalized channel name -> guide channel id (fallback matching) */
+  names: Record<string, string>;
+  count: number;
 }
 
 export interface HistoryEntry {
@@ -124,7 +142,11 @@ export interface Settings {
   liveFormat: 'auto' | 'ts' | 'm3u8';
   /** web only: route streams through the server proxy */
   webProxy: 'auto' | 'always' | 'never';
+  /** Player buffer: small = fastest channel switching, xlarge = most tolerant of weak Wi-Fi */
+  buffer: BufferSize;
 }
+
+export type BufferSize = 'small' | 'normal' | 'large' | 'xlarge';
 
 export interface PlayItem {
   id: string;
@@ -141,6 +163,7 @@ export interface PlayRequest {
   userAgent?: string;
   /** for history bookkeeping */
   seriesId?: string;
+  buffer?: BufferSize;
 }
 
 export interface PlayResult {

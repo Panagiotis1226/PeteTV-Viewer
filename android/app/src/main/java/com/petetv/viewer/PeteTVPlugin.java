@@ -110,6 +110,7 @@ public class PeteTVPlugin extends Plugin {
         pl.startMs = (long) (call.getDouble("startPosition", 0.0) * 1000);
         pl.userAgent = call.getString("userAgent", "VLC/3.0.21 LibVLC/3.0.21");
         pl.live = "live".equals(call.getString("kind"));
+        pl.buffer = call.getString("buffer", "normal");
         // Passed through a static field: big channel lists would overflow an Intent (1MB binder limit).
         PlayerActivity.pending = pl;
         Intent intent = new Intent(getContext(), PlayerActivity.class);

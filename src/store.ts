@@ -5,7 +5,7 @@ import { buildM3ULibrary } from './providers/m3u';
 import { XtreamClient } from './providers/xtream';
 import { applyOrder, moveInOrder, toggle } from './order';
 import type {
-  Category, HistoryEntry, Item, Kind, Library, PlaylistSource, Prefs, Settings,
+  Category, EpgData, HistoryEntry, Item, Kind, Library, PlaylistSource, Prefs, Settings,
 } from './types';
 
 export interface State {
@@ -16,6 +16,10 @@ export interface State {
   prefs: Prefs;
   loading: string | null;
   error: string | null;
+  /** TV guide (loaded lazily, see epg/index.ts) */
+  epg: EpgData | null;
+  epgStatus: string | null;
+  epgError: string | null;
 }
 
 const emptyPrefs = (): Prefs => ({
@@ -25,11 +29,14 @@ const emptyPrefs = (): Prefs => ({
 export const state: State = {
   ready: false,
   playlists: [],
-  settings: { liveFormat: 'auto', webProxy: 'auto' },
+  settings: { liveFormat: 'auto', webProxy: 'auto', buffer: 'normal' },
   library: null,
   prefs: emptyPrefs(),
   loading: null,
   error: null,
+  epg: null,
+  epgStatus: null,
+  epgError: null,
 };
 
 // ---------- subscription ----------
@@ -96,11 +103,19 @@ export async function addPlaylist(src: PlaylistSource) {
   await switchPlaylist(src.id);
 }
 
+/** Forget a playlist's cached TV guide (after its source changed). */
+export async function clearEpg(id: string) {
+  await db.del(`epg:${id}`);
+  if (state.epg?.playlistId === id) state.epg = null;
+  state.epgError = null;
+}
+
 export async function removePlaylist(id: string) {
   state.playlists = state.playlists.filter((p) => p.id !== id);
   await db.set(K_PLAYLISTS, state.playlists);
   await db.del(kLib(id));
   await db.del(kPrefs(id));
+  await clearEpg(id);
   if (state.settings.activePlaylistId === id) {
     state.library = null;
     state.prefs = emptyPrefs();
@@ -113,6 +128,8 @@ export async function removePlaylist(id: string) {
 
 export async function switchPlaylist(id: string) {
   await saveSettings({ activePlaylistId: id });
+  state.epg = null;
+  state.epgError = null;
   state.prefs = { ...emptyPrefs(), ...((await db.get<Prefs>(kPrefs(id))) || {}) };
   state.library = (await db.get<Library>(kLib(id))) || null;
   emit();
@@ -216,6 +233,23 @@ export function countsFor(kind: Kind): number {
 // ---------- prefs mutations ----------
 export function toggleHiddenCategory(id: string) {
   state.prefs = { ...state.prefs, hiddenCategories: toggle(state.prefs.hiddenCategories, id) };
+  savePrefs();
+}
+/** Show (visible=true) or hide every id in `ids` in one save. */
+function setMany(list: string[], ids: string[], visible: boolean): string[] {
+  const set = new Set(list);
+  for (const id of ids) {
+    if (visible) set.delete(id);
+    else set.add(id);
+  }
+  return [...set];
+}
+export function setCategoriesVisible(ids: string[], visible: boolean) {
+  state.prefs = { ...state.prefs, hiddenCategories: setMany(state.prefs.hiddenCategories, ids, visible) };
+  savePrefs();
+}
+export function setItemsVisible(ids: string[], visible: boolean) {
+  state.prefs = { ...state.prefs, hiddenItems: setMany(state.prefs.hiddenItems, ids, visible) };
   savePrefs();
 }
 export function toggleHiddenItem(id: string) {

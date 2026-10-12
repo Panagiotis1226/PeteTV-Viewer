@@ -3,7 +3,8 @@ import { VirtualList } from '../components/VirtualList';
 import { focusEl } from '../nav/spatial';
 import { push, pop, replace } from '../router';
 import {
-  categoriesFor, itemsFor, moveCategory, moveItem, resetOrder, state, toggleHiddenCategory, toggleHiddenItem, useStore,
+  categoriesFor, itemsFor, moveCategory, moveItem, resetOrder, setCategoriesVisible, setItemsVisible, state,
+  toggleHiddenCategory, toggleHiddenItem, useStore,
 } from '../store';
 import type { Kind } from '../types';
 import { norm } from '../util';
@@ -30,6 +31,27 @@ function SearchBox({ value, onInput, placeholder }: { value: string; onInput: (v
       value={value}
       onInput={(e) => onInput((e.currentTarget as HTMLInputElement).value)}
     />
+  );
+}
+
+/** Select all (show) / Deselect all (hide) — limited to the search results when searching. */
+function BulkButtons({ ids, filtered, onSet }: { ids: string[]; filtered: boolean; onSet: (ids: string[], visible: boolean) => void }) {
+  const what = filtered ? `${ids.length} matching` : 'all';
+  return (
+    <>
+      <button data-nav class="btn" disabled={!ids.length} onClick={() => onSet(ids, true)} title={`Show ${what}`}>
+        ☑ Select {filtered ? 'matching' : 'all'}
+      </button>
+      <button
+        data-nav
+        class="btn"
+        disabled={!ids.length}
+        title={`Hide ${what}`}
+        onClick={() => { if (ids.length < 20 || confirm(`Hide ${what} (${ids.length})?`)) onSet(ids, false); }}
+      >
+        ☐ Deselect {filtered ? 'matching' : 'all'}
+      </button>
+    </>
   );
 }
 
@@ -89,6 +111,7 @@ export function Manage({ kind }: { kind: Kind }) {
         </div>
         <div class="grow" />
         <SearchBox value={query} onInput={setQuery} placeholder="Search categories…" />
+        <BulkButtons ids={shown.map((r) => r.item.id)} filtered={!!query.trim()} onSet={setCategoriesVisible} />
         <button data-nav class="btn" onClick={() => { if (confirm(`Reset hidden items and order for ${LABEL[kind]}?`)) resetOrder(kind); }}>Reset</button>
       </header>
       <p class="muted small pad">
@@ -134,6 +157,7 @@ export function ManageItems({ categoryId }: { categoryId: string }) {
         <h1>{cat?.name || 'Category'}</h1>
         <div class="grow" />
         <SearchBox value={query} onInput={setQuery} placeholder="Search in this category…" />
+        <BulkButtons ids={shown.map((r) => r.item.id)} filtered={!!query.trim()} onSet={setItemsVisible} />
       </header>
       <p class="muted small pad">{items.length - items.filter((i) => hidden.has(i.id)).length} of {items.length} visible.</p>
       <div class="manage-list" data-nav-group="manage-items">

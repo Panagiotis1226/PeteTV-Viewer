@@ -16,7 +16,9 @@ No accounts. No MAC-address activation. No cloud. Your playlists stay on your de
 
 - **Playlists:** M3U / M3U8 by URL or file upload, and **Xtream Codes** login (server + username + password). Multiple playlists, switch any time. An Xtream `get.php` M3U link is automatically upgraded to the faster Xtream API.
 - **Live TV, Movies, Series** sections with categories, search, favorites, recently watched and *Continue watching* (resume where you stopped).
-- **Hide & reorder** categories *and* individual channels/movies/series. Stored per playlist, survives playlist refreshes (new provider categories just appear at the end).
+- **Hide & reorder** categories *and* individual channels/movies/series, with search and Select all / Deselect all (applies to the search results when searching). Stored per playlist, survives playlist refreshes (new provider categories just appear at the end).
+- **TV Guide (EPG):** timeline grid from your provider's XMLTV guide (Xtream `xmltv.php`, the M3U's `url-tvg`, or a custom guide URL; `.xml.gz` supported). Parsed in the background and cached, keeping only your channels — tested with a 224 MB guide.
+- **Buffer size** setting: Fast zapping / Normal / Large / Very large.
 - **Live TV extras:** channel zapping with ↑/↓ or CH+/CH− inside the player, now/next programme info (Xtream short EPG).
 - **Series:** seasons and episodes (from the Xtream API, or auto-grouped from `Show S01 E02` names in M3U files), auto-play next episode.
 - **Built for TV remotes:** full D-pad navigation with a big focus ring; also works with mouse, keyboard and touch.
