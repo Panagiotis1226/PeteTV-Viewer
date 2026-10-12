@@ -23,8 +23,12 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      # Browser E2E uses the runner's Google Chrome (H.264/AAC support for real playback tests)
-      - run: google-chrome --version
+      # Real playback tests need H.264/AAC: use Chrome for Testing (the runner's
+      # preinstalled Chrome failed to decode AAC in plain MP4 files on this image).
+      - name: Install Chrome for Testing
+        run: |
+          npx -y @puppeteer/browsers install chrome@stable --path "$RUNNER_TEMP/cft" | tee cft.txt
+          echo "CHROME_PATH=$(tail -1 cft.txt | cut -d' ' -f2)" >> "$GITHUB_ENV"
       - run: npx playwright test
       - uses: actions/upload-artifact@v4
         if: failure()
