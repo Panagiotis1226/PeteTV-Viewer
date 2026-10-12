@@ -183,7 +183,10 @@ export function WebPlayer({ req }: { req: PlayRequest }) {
         onPause={() => setPaused(true)}
         onPlay={() => setPaused(false)}
         onEnded={() => { if (!live && index < req.items.length - 1) setIndex(index + 1); }}
-        onError={() => setError('This stream could not be played in the browser.')}
+        onError={(e) => {
+          const err = (e.currentTarget as HTMLVideoElement).error;
+          setError('This stream could not be played in the browser.' + (err?.message ? ` (${err.message})` : ''));
+        }}
       />
       {buffering && !error && <div class="spinner" aria-label="Loading" />}
       {error && (
