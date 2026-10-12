@@ -1,0 +1,12 @@
+services:
+  petetv:
+    image: ghcr.io/panagiotis1226/petetv-viewer:latest
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # Strongly recommended if the server is reachable from the internet:
+      APP_PASSWORD: ""
+      # Allow the proxy to reach providers on your LAN (e.g. a local tvheadend):
+      ALLOW_PRIVATE_NETWORKS: "false"
+    restart: unless-stopped

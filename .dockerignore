@@ -1,0 +1,8 @@
+node_modules
+dist
+android
+e2e
+tests
+tools/mock-iptv/media
+test-results
+.git

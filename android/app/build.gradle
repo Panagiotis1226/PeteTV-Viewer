@@ -1,0 +1,79 @@
+apply plugin: 'com.android.application'
+
+import groovy.json.JsonSlurper
+
+// Version comes from package.json so web + Android stay in sync.
+def pkg = new JsonSlurper().parse(file('../../package.json'))
+def (vMajor, vMinor, vPatch) = pkg.version.tokenize('.').collect { it.replaceAll(/\D.*/, '') as int }
+def media3 = '1.11.1'
+
+android {
+    namespace = "com.petetv.viewer"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.petetv.viewer"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode vMajor * 10000 + vMinor * 100 + vPatch
+        versionName pkg.version
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        // Set PETETV_KEYSTORE (+ passwords) to sign with your own key. Without it the
+        // bundled *development* key is used so test builds can be installed over each other.
+        release {
+            storeFile file(System.getenv('PETETV_KEYSTORE') ?: '../keystore/petetv-dev.jks')
+            storePassword System.getenv('PETETV_KEYSTORE_PASSWORD') ?: 'petetv-dev'
+            keyAlias System.getenv('PETETV_KEY_ALIAS') ?: 'petetv'
+            keyPassword System.getenv('PETETV_KEY_PASSWORD') ?: 'petetv-dev'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    implementation "androidx.media3:media3-exoplayer:$media3"
+    implementation "androidx.media3:media3-exoplayer-hls:$media3"
+    implementation "androidx.media3:media3-ui:$media3"
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
