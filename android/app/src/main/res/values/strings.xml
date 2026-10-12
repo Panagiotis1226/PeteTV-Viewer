@@ -5,5 +5,10 @@
     <string name="package_name">com.petetv.viewer</string>
     <string name="custom_url_scheme">com.petetv.viewer</string>
     <string name="player_reconnecting">Reconnecting…</string>
-    <string name="player_error">Stream unavailable (%1$s). Press ↑/↓ for another channel or Back to exit.</string>
+    <string name="player_error">Stream unavailable (%1$s).</string>
+    <string name="player_error_hint">Press ↑/↓ for another channel or Back to exit.</string>
+    <string name="player_error_http">Your provider refused this stream (HTTP %1$d). Try another User-Agent (Settings → Edit playlist), or check your account / connection limit.</string>
+    <string name="player_error_codec">This device can\'t decode %1$s.</string>
+    <string name="player_error_stall">The stream isn\'t sending any data. Try another User-Agent (Settings → Edit playlist) or switch Live stream format in Settings.</string>
+    <string name="player_no_audio">%1$s isn\'t supported on this device — playing without sound.</string>
 </resources>

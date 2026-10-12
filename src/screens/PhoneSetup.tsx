@@ -4,6 +4,7 @@ import { toast } from '../components/Toast';
 import { Native } from '../platform';
 import { pop, resetTo } from '../router';
 import { savePlaylistFromInput } from './AddPlaylist';
+import { UA_PRESETS } from '../useragents';
 
 function Qr({ text }: { text: string }) {
   const qr = qrcode(0, 'M');
@@ -37,7 +38,7 @@ export function PhoneSetup() {
         setStatus('Waiting for your phone…');
       }
     }).then((h) => { if (alive) handle = h; else h.remove(); });
-    Native.startSetupServer({ pin })
+    Native.startSetupServer({ pin, userAgents: UA_PRESETS })
       .then((r) => { setAddr(r.url); setStatus('Waiting for your phone…'); })
       .catch((e) => setErr('Could not start setup server: ' + e.message));
     return () => {

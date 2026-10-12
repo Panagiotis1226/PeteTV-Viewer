@@ -6,6 +6,7 @@ import { pop, resetTo } from '../router';
 import { addPlaylist, refreshLibrary, state } from '../store';
 import type { PlaylistSource } from '../types';
 import { normalizeServer, uid } from '../util';
+import { CUSTOM, presetFor, UA_PRESETS } from '../useragents';
 
 type Tab = 'xtream' | 'm3u' | 'file';
 
@@ -67,6 +68,7 @@ export function AddPlaylist({ editId }: { editId?: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [uaChoice, setUaChoice] = useState(() => presetFor(existing?.userAgent));
   const bind = (k: keyof typeof f) => ({
     value: f[k],
     onInput: (e: Event) => setF({ ...f, [k]: (e.currentTarget as HTMLInputElement).value }),
@@ -123,10 +125,24 @@ export function AddPlaylist({ editId }: { editId?: string }) {
             <input data-nav type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/x-mpegurl,text/plain" onChange={onFile} />
           </label>
         )}
-        <details>
-          <summary data-nav>Advanced</summary>
-          <label>User-Agent (optional)<input data-nav {...bind('userAgent')} placeholder="Leave blank for default" autoCapitalize="off" /></label>
-        </details>
+        <label>
+          Player User-Agent — if channels won't load, pick the app that works for you
+          <select
+            data-nav
+            value={uaChoice}
+            onChange={(e) => {
+              const v = (e.currentTarget as HTMLSelectElement).value;
+              setUaChoice(v);
+              if (v !== CUSTOM) setF({ ...f, userAgent: v });
+            }}
+          >
+            {UA_PRESETS.map((p) => <option key={p.label} value={p.value}>{p.label}</option>)}
+            <option value={CUSTOM}>Custom…</option>
+          </select>
+        </label>
+        {uaChoice === CUSTOM && (
+          <label>Custom User-Agent<input data-nav {...bind('userAgent')} placeholder="e.g. MyPlayer/1.0" autoCapitalize="off" autoCorrect="off" spellcheck={false} /></label>
+        )}
         {err && <div class="banner error">{err}</div>}
         <div class="row gap">
           <button data-nav class="btn primary lg" type="submit" disabled={busy}>{busy ? 'Connecting…' : existing ? 'Save' : 'Add playlist'}</button>

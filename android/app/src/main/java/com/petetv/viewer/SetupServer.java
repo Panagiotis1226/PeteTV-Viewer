@@ -27,13 +27,15 @@ class SetupServer {
 
     private static final int MAX_BODY = 60 * 1024 * 1024; // pasted / uploaded M3U files can be large
     private final String pin;
+    private final String uaPresetsJson;
     private final Listener listener;
     private final ExecutorService pool = Executors.newFixedThreadPool(4);
     private ServerSocket server;
     private volatile boolean running;
 
-    SetupServer(String pin, Listener listener) {
+    SetupServer(String pin, String uaPresetsJson, Listener listener) {
         this.pin = pin;
+        this.uaPresetsJson = uaPresetsJson == null ? "[]" : uaPresetsJson;
         this.listener = listener;
     }
 
@@ -95,7 +97,7 @@ class SetupServer {
             }
             OutputStream out = s.getOutputStream();
             if ("GET".equals(method) && (path.equals("/") || path.startsWith("/?"))) {
-                respond(out, 200, "text/html; charset=utf-8", PAGE);
+                respond(out, 200, "text/html; charset=utf-8", PAGE.replace("__UA_PRESETS__", uaPresetsJson.replace("</", "<\\/")));
             } else if ("POST".equals(method) && path.equals("/submit")) {
                 if (length <= 0 || length > MAX_BODY) {
                     respond(out, 413, "application/json", "{\"error\":\"Playlist too large\"}");
@@ -153,7 +155,7 @@ class SetupServer {
             + "<meta name=viewport content='width=device-width,initial-scale=1'><title>PeteTV setup</title><style>"
             + "body{font-family:system-ui,sans-serif;background:#0b0f17;color:#eef2fb;margin:0;padding:20px;max-width:520px;margin:auto}"
             + "h1{font-size:26px}h1 span{color:#4f8cff}label{display:block;margin:14px 0 4px;color:#94a0bb;font-size:14px}"
-            + "input,textarea{width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #2a3550;background:#171f30;color:#fff;font-size:16px}"
+            + "input,textarea,select{width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #2a3550;background:#171f30;color:#fff;font-size:16px}"
             + ".tabs{display:flex;gap:8px;margin:16px 0}.tabs button{flex:1;padding:10px;border-radius:99px;border:1px solid #2a3550;background:#171f30;color:#fff;font-size:14px}"
             + ".tabs button.on{background:#4f8cff;border-color:#4f8cff}.go{margin-top:22px;width:100%;padding:14px;border:0;border-radius:12px;background:#4f8cff;color:#fff;font-size:18px;font-weight:600}"
             + ".msg{margin-top:16px;padding:12px;border-radius:10px;display:none}.ok{background:#12351f;display:block}.err{background:#3a1620;display:block}.hide{display:none}"
@@ -165,13 +167,19 @@ class SetupServer {
             + "<label>Username</label><input id=username autocapitalize=off autocorrect=off><label>Password</label><input id=password type=password></div>"
             + "<div id=f-m3u class=hide><label>M3U URL</label><input id=url placeholder='http://…/get.php?…' autocapitalize=off autocorrect=off></div>"
             + "<div id=f-file class=hide><label>M3U file</label><input id=file type=file accept='.m3u,.m3u8,text/plain,audio/x-mpegurl'></div>"
-            + "<label>User-Agent (optional)</label><input id=ua autocapitalize=off>"
+            + "<label>Player User-Agent (if channels won't load, pick the app that works for you)</label><select id=uasel onchange=uachg()></select>"
+            + "<div id=uacustom class=hide><label>Custom User-Agent</label><input id=ua autocapitalize=off autocorrect=off></div>"
             + "<button class=go onclick=send()>Send to TV</button><div id=msg class=msg></div>"
-            + "<script>var mode='xtream';function tab(m){mode=m;['xtream','m3u','file'].forEach(function(k){"
+            + "<script>var UA=__UA_PRESETS__;var sel=document.getElementById('uasel');"
+            + "UA.forEach(function(p){var o=document.createElement('option');o.value=p.value;o.textContent=p.label;sel.appendChild(o)});"
+            + "var c=document.createElement('option');c.value='__custom';c.textContent='Custom…';sel.appendChild(c);"
+            + "function uachg(){document.getElementById('uacustom').className=sel.value==='__custom'?'':'hide'}"
+            + "function uaval(){return sel.value==='__custom'?v('ua'):sel.value}"
+            + "var mode='xtream';function tab(m){mode=m;['xtream','m3u','file'].forEach(function(k){"
             + "document.getElementById('f-'+k).className=k===m?'':'hide';document.getElementById('t-'+k).className=k===m?'on':''})}"
             + "function v(id){return document.getElementById(id).value.trim()}"
             + "function show(t,ok){var m=document.getElementById('msg');m.textContent=t;m.className='msg '+(ok?'ok':'err')}"
-            + "async function send(){try{var p={type:mode,name:v('name'),userAgent:v('ua')};"
+            + "async function send(){try{var p={type:mode,name:v('name'),userAgent:uaval()};"
             + "if(mode==='xtream'){p.server=v('server');p.username=v('username');p.password=document.getElementById('password').value}"
             + "else if(mode==='m3u'){p.url=v('url')}else{var f=document.getElementById('file').files[0];if(!f)return show('Choose a file first');p.text=await f.text();if(!p.name)p.name=f.name}"
             + "show('Sending…',true);var r=await fetch('/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:v('pin'),playlist:p})});"

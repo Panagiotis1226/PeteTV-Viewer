@@ -214,6 +214,7 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 0.7rem; color: var(--muted); text-tran
 .mrow-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mrow-name small { color: var(--muted); }
 .toggle { min-width: 7.5rem; }
+.manage-search { width: 16rem; }
 .toggle.on { border-color: var(--ok); }
 
 /* ---------- settings / forms ---------- */
@@ -228,6 +229,9 @@ input:not([type=range]):not([type=file]), textarea {
   user-select: text;
 }
 input:focus { border-color: var(--accent); }
+select {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.7rem 0.9rem; color: var(--text); font-size: 1.05rem;
+}
 label.file { border: 2px dashed var(--line); border-radius: var(--radius); padding: 1.5rem; text-align: center; color: var(--text); }
 summary { cursor: pointer; color: var(--muted); padding: 0.3rem 0; }
 details label { margin-top: 0.6rem; }

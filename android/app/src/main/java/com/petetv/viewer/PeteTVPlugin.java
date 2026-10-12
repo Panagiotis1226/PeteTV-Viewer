@@ -131,8 +131,9 @@ public class PeteTVPlugin extends Plugin {
     public void startSetupServer(PluginCall call) {
         stopServer();
         String pin = call.getString("pin", "0000");
+        JSArray presets = call.getArray("userAgents");
         try {
-            setupServer = new SetupServer(pin, json -> {
+            setupServer = new SetupServer(pin, presets != null ? presets.toString() : "[]", json -> {
                 JSObject d = new JSObject();
                 d.put("data", json);
                 notifyListeners("setupData", d);

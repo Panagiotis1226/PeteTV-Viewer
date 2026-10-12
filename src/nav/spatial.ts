@@ -162,6 +162,14 @@ export function installSpatialNav() {
       return;
     }
     if (e.key === 'Enter' && active && active.hasAttribute('data-nav') && !isTextInput(active)) {
+      if (active.tagName === 'SELECT') {
+        // Open the option list; if showPicker is unavailable, let the WebView handle Enter natively.
+        const sel = active as HTMLSelectElement;
+        if (typeof sel.showPicker === 'function') {
+          try { sel.showPicker(); e.preventDefault(); } catch { /* fall back to native */ }
+        }
+        return;
+      }
       if (active.tagName !== 'BUTTON' && active.tagName !== 'A') {
         e.preventDefault();
         (active as HTMLElement).click();

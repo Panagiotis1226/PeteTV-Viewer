@@ -1,6 +1,6 @@
 {
   "name": "petetv-viewer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Free, open-source IPTV player for Android TV, Fire TV, web (and iOS later). M3U playlists + Xtream Codes.",
   "license": "MIT",

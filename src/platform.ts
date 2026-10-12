@@ -9,7 +9,7 @@ export const DEFAULT_UA = 'VLC/3.0.21 LibVLC/3.0.21';
 interface PeteTVPlugin {
   play(req: PlayRequest): Promise<PlayResult>;
   download(opts: { url: string; userAgent?: string }): Promise<{ path: string }>;
-  startSetupServer(opts: { pin: string }): Promise<{ url: string; ip: string; port: number }>;
+  startSetupServer(opts: { pin: string; userAgents: { label: string; value: string }[] }): Promise<{ url: string; ip: string; port: number }>;
   stopSetupServer(): Promise<void>;
   addListener(event: 'setupData', cb: (d: { data: string }) => void): Promise<PluginListenerHandle>;
 }

@@ -80,8 +80,25 @@ test('hide and reorder categories and channels', async ({ page }) => {
   // Move "Kids" to top
   await page.locator('.layer:not(.inactive) .mrow', { hasText: 'Kids' }).getByRole('button', { name: 'Move to top' }).click();
   await expect(page.locator('.layer:not(.inactive) .mrow-name').first()).toContainText('Kids');
+  // Search: filter categories, and moves still act on the full order
+  await page.getByPlaceholder('Search categories…').fill('spo');
+  await expect(page.locator('.layer:not(.inactive) .mrow-name')).toHaveCount(1);
+  await expect(page.locator('.layer:not(.inactive) .mrow-pos')).toHaveText('3'); // real position: Kids, News, Sports
+  await page.locator('.layer:not(.inactive) .mrow', { hasText: 'Sports' }).getByRole('button', { name: 'Move to top' }).click();
+  await expect(page.locator('.layer:not(.inactive) .mrow-pos')).toHaveText('1');
+  await page.getByPlaceholder('Search categories…').fill('zzz');
+  await expect(page.getByText('No categories match')).toBeVisible();
+  await page.getByPlaceholder('Search categories…').fill('');
+  await expect(page.locator('.layer:not(.inactive) .mrow-name').first()).toContainText('Sports');
+  const sportsDown = page.locator('.layer:not(.inactive) .mrow', { hasText: 'Sports' }).getByRole('button', { name: 'Move down' });
+  await sportsDown.click();
+  await sportsDown.click();
+  await expect(page.locator('.layer:not(.inactive) .mrow-name')).toHaveText([/Kids/, /News/, /Sports/, /Adult/]);
   // Reorder channels within Sports: move beIN up twice
   await page.locator('.layer:not(.inactive) .mrow', { hasText: 'Sports' }).getByRole('button', { name: /Channels/ }).click();
+  await page.getByPlaceholder('Search in this category…').fill('espn');
+  await expect(page.locator('.layer:not(.inactive) .mrow-name')).toHaveText(['ESPN Test']);
+  await page.getByPlaceholder('Search in this category…').fill('');
   const bein = page.locator('.layer:not(.inactive) .mrow', { hasText: 'beIN Test' });
   await bein.getByRole('button', { name: 'Move up' }).click();
   await bein.getByRole('button', { name: 'Move up' }).click();
@@ -183,4 +200,32 @@ test('bad login shows an error', async ({ page }) => {
   await page.getByLabel('Password').fill('wrong');
   await page.getByRole('button', { name: 'Add playlist' }).click();
   await expect(page.locator('.banner.error')).toContainText('Login failed');
+});
+
+test('User-Agent preset is sent to the provider', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '+ Add playlist' }).click();
+  await page.getByLabel('Server URL').fill(MOCK);
+  await page.getByLabel('Username').fill('demo');
+  await page.getByLabel('Password').fill('demo');
+  await page.getByLabel(/Player User-Agent/).selectOption({ label: 'IPTV Smarters Player Lite' });
+  await expect(page.getByLabel('Custom User-Agent')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add playlist' }).click();
+  await page.locator('.tile.t-live').click();
+  await page.locator('.ch').first().click();
+  await videoAdvances(page);
+  expect(await (await fetch(`${MOCK}/debug/last-ua`)).text()).toBe('iptv_smarters_player_lite');
+  // Edit -> custom value
+  await key(page, 'Escape'); await key(page, 'Escape');
+  await page.getByRole('button', { name: '⚙ Settings' }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.getByLabel(/Player User-Agent/)).toHaveValue('iptv_smarters_player_lite');
+  await page.getByLabel(/Player User-Agent/).selectOption({ label: 'Custom…' });
+  await page.getByLabel('Custom User-Agent').fill('MyPlayer/9.9');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('.tile.t-live .tile-count')).toHaveText('10');
+  await page.locator('.tile.t-live').click();
+  await page.locator('.ch').first().click();
+  await videoAdvances(page);
+  expect(await (await fetch(`${MOCK}/debug/last-ua`)).text()).toBe('MyPlayer/9.9');
 });

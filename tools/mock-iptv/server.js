@@ -127,10 +127,14 @@ function json(res, obj) {
   res.end(JSON.stringify(obj));
 }
 
+let lastStreamUA = '';
+
 export function createMockServer() {
   ensureMedia();
   return http.createServer((req, res) => {
     const u = new URL(req.url, 'http://x');
+    if (/^\/(live|movie|series|hls)\//.test(u.pathname)) lastStreamUA = req.headers['user-agent'] || '';
+    if (u.pathname === '/debug/last-ua') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(lastStreamUA); }
     const q = u.searchParams;
     const p = u.pathname;
     if (p === '/player_api.php') {

@@ -15,12 +15,15 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.HttpDataSource;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
@@ -61,8 +64,13 @@ public class PlayerActivity extends AppCompatActivity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private int retries;
     private boolean resultSet;
+    private boolean audioDisabled;
+    /** How long a stream may sit in "loading" before we treat it as stalled. */
+    private static final long STALL_MS = 20000;
 
     private final Runnable hideOverlay = () -> overlay.setVisibility(View.GONE);
+    private final Runnable hideError = () -> errorView.setVisibility(View.GONE);
+    private final Runnable stallCheck = this::onStalled;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,7 +99,11 @@ public class PlayerActivity extends AppCompatActivity {
         DefaultExtractorsFactory extractors = new DefaultExtractorsFactory()
                 .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES
                         | DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS);
-        DefaultRenderersFactory renderers = new DefaultRenderersFactory(this).setEnableDecoderFallback(true);
+        // EXTENSION_RENDERER_MODE_ON: hardware/platform decoders first, the bundled FFmpeg audio
+        // decoder (AC-3, E-AC-3, DTS, TrueHD, …) when the device can't decode a track itself.
+        DefaultRenderersFactory renderers = new DefaultRenderersFactory(this)
+                .setEnableDecoderFallback(true)
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON);
 
         player = new ExoPlayer.Builder(this, renderers)
                 .setMediaSourceFactory(new DefaultMediaSourceFactory(http, extractors))
@@ -104,9 +116,12 @@ public class PlayerActivity extends AppCompatActivity {
 
             @Override
             public void onPlaybackStateChanged(int state) {
-                if (state == Player.STATE_READY) {
+                handler.removeCallbacks(stallCheck);
+                if (state == Player.STATE_BUFFERING) {
+                    handler.postDelayed(stallCheck, STALL_MS);
+                } else if (state == Player.STATE_READY) {
                     retries = 0;
-                    errorView.setVisibility(View.GONE);
+                    if (!audioDisabled) errorView.setVisibility(View.GONE);
                 } else if (state == Player.STATE_ENDED) {
                     if (!pl.live && pl.index < pl.urls.size() - 1) {
                         load(pl.index + 1, 0);
@@ -129,6 +144,12 @@ public class PlayerActivity extends AppCompatActivity {
     private void load(int index, long startMs) {
         pl.index = index;
         retries = 0;
+        if (audioDisabled) {
+            audioDisabled = false;
+            player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false).build());
+        }
+        errorView.setVisibility(View.GONE);
         String url = pl.urls.get(index);
         MediaItem.Builder b = new MediaItem.Builder().setUri(url).setMediaId(pl.ids.get(index));
         String lower = url.toLowerCase(Locale.ROOT);
@@ -155,27 +176,116 @@ public class PlayerActivity extends AppCompatActivity {
         load(((pl.index + delta) % n + n) % n, 0);
     }
 
+    /** Retry the current item (keeps the position for movies/series). */
+    private void retry(long delayMs) {
+        errorView.setText(getString(R.string.player_reconnecting));
+        errorView.setVisibility(View.VISIBLE);
+        handler.postDelayed(() -> {
+            if (player == null) return;
+            if (pl.live) player.seekToDefaultPosition();
+            player.prepare();
+            player.setPlayWhenReady(true);
+        }, delayMs);
+    }
+
+    private void showError(String message) {
+        handler.removeCallbacks(stallCheck);
+        errorView.setText(message + "\n" + getString(R.string.player_error_hint));
+        errorView.setVisibility(View.VISIBLE);
+    }
+
+    /** Stuck in "loading" with no error: the server accepted the request but sends nothing usable. */
+    private void onStalled() {
+        if (player == null || player.getPlaybackState() != Player.STATE_BUFFERING) return;
+        if (retries < (pl.live ? 3 : 1)) {
+            retries++;
+            player.stop();
+            retry(500);
+        } else {
+            player.stop();
+            showError(getString(R.string.player_error_stall));
+        }
+    }
+
     private void handleError(PlaybackException error) {
         if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
             player.seekToDefaultPosition();
             player.prepare();
             return;
         }
-        // Live streams drop all the time on IPTV: retry a few times before giving up.
-        if (retries < (pl.live ? 5 : 2)) {
-            retries++;
-            errorView.setText(getString(R.string.player_reconnecting));
-            errorView.setVisibility(View.VISIBLE);
-            handler.postDelayed(() -> {
-                if (player != null) {
-                    player.prepare();
-                    player.setPlayWhenReady(true);
-                }
-            }, 1500L * retries);
+
+        // Decoder problems: retrying is pointless, say exactly what is unsupported.
+        Format format = null;
+        if (error instanceof ExoPlaybackException && ((ExoPlaybackException) error).type == ExoPlaybackException.TYPE_RENDERER) {
+            format = ((ExoPlaybackException) error).rendererFormat;
+        }
+        boolean decoderError = format != null || (error.errorCode >= 4000 && error.errorCode < 5000);
+        if (decoderError) {
+            String mime = format != null && format.sampleMimeType != null ? format.sampleMimeType : "";
+            if (mime.startsWith("audio/") && !audioDisabled) {
+                // Unplayable audio track: play the picture without sound rather than nothing.
+                audioDisabled = true;
+                player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true).build());
+                player.prepare();
+                player.setPlayWhenReady(true);
+                errorView.setText(getString(R.string.player_no_audio, describe(format)));
+                errorView.setVisibility(View.VISIBLE);
+                handler.removeCallbacks(hideError);
+                handler.postDelayed(hideError, 6000);
+                return;
+            }
+            showError(getString(R.string.player_error_codec, format != null ? describe(format) : error.getErrorCodeName()));
             return;
         }
-        errorView.setText(getString(R.string.player_error, error.getErrorCodeName()));
-        errorView.setVisibility(View.VISIBLE);
+
+        // The provider answered with an HTTP error: usually User-Agent, expired account or connection limit.
+        HttpDataSource.InvalidResponseCodeException http = findCause(error, HttpDataSource.InvalidResponseCodeException.class);
+        if (http != null) {
+            if (pl.live && retries < 1 && http.responseCode >= 500) {
+                retries++;
+                retry(2000);
+                return;
+            }
+            showError(getString(R.string.player_error_http, http.responseCode));
+            return;
+        }
+
+        // Network / stream drops: retry a few times (live IPTV streams drop all the time).
+        boolean network = error.errorCode >= 2000 && error.errorCode < 3000;
+        if (network && retries < (pl.live ? 5 : 2)) {
+            retries++;
+            retry(1500L * retries);
+            return;
+        }
+        showError(getString(R.string.player_error, error.getErrorCodeName()));
+    }
+
+    private static <T extends Throwable> T findCause(Throwable t, Class<T> type) {
+        for (int i = 0; t != null && i < 10; i++, t = t.getCause()) {
+            if (type.isInstance(t)) return type.cast(t);
+        }
+        return null;
+    }
+
+    /** "Dolby Digital Plus (E-AC-3)" style names for the formats IPTV users hit most. */
+    private static String describe(Format f) {
+        String m = f.sampleMimeType == null ? "" : f.sampleMimeType;
+        String name;
+        switch (m) {
+            case MimeTypes.AUDIO_AC3: name = "Dolby Digital (AC-3) audio"; break;
+            case MimeTypes.AUDIO_E_AC3: case MimeTypes.AUDIO_E_AC3_JOC: name = "Dolby Digital Plus (E-AC-3) audio"; break;
+            case MimeTypes.AUDIO_AC4: name = "Dolby AC-4 audio"; break;
+            case MimeTypes.AUDIO_TRUEHD: name = "Dolby TrueHD audio"; break;
+            case MimeTypes.AUDIO_DTS: case MimeTypes.AUDIO_DTS_HD: case MimeTypes.AUDIO_DTS_EXPRESS: name = "DTS audio"; break;
+            case MimeTypes.VIDEO_H265: name = "HEVC / H.265 video"; break;
+            case MimeTypes.VIDEO_AV1: name = "AV1 video"; break;
+            case MimeTypes.VIDEO_VP9: name = "VP9 video"; break;
+            case MimeTypes.VIDEO_MPEG2: name = "MPEG-2 video"; break;
+            default: name = m.isEmpty() ? "this format" : m;
+        }
+        if (f.width > 0 && f.height > 0) name += " " + f.width + "x" + f.height;
+        return name;
     }
 
     @Override
