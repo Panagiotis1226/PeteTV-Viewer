@@ -5,18 +5,40 @@ const STORE = 'kv';
 let dbp: Promise<IDBDatabase | null> | null = null;
 const mem = new Map<string, unknown>();
 
-function open(): Promise<IDBDatabase | null> {
-  if (dbp) return dbp;
-  dbp = new Promise((resolve) => {
+function openOnce(timeoutMs: number): Promise<IDBDatabase | null> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (db: IDBDatabase | null) => {
+      if (!done) {
+        done = true;
+        resolve(db);
+      }
+    };
+    // IndexedDB occasionally never answers (seen in Chrome/WebView under load):
+    // don't let that freeze the app on its splash screen.
+    setTimeout(() => finish(null), timeoutMs);
     try {
       const req = indexedDB.open(DB, 1);
       req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => resolve(null);
+      req.onsuccess = () => {
+        if (done) req.result.close();
+        else finish(req.result);
+      };
+      req.onerror = () => finish(null);
     } catch {
-      resolve(null);
+      finish(null);
     }
   });
+}
+
+function open(): Promise<IDBDatabase | null> {
+  if (!dbp) {
+    // One retry, then fall back to in-memory storage for this session.
+    dbp = openOnce(4000).then((db) => db || openOnce(4000)).then((db) => {
+      if (!db) console.warn('IndexedDB unavailable: settings will not be saved this session');
+      return db;
+    });
+  }
   return dbp;
 }
 
