@@ -23,20 +23,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      # Real playback tests need H.264/AAC: use Chrome for Testing (the runner's
-      # preinstalled Chrome failed to decode AAC in plain MP4 files on this image).
-      - name: Install Chrome for Testing
-        run: |
-          npx -y @puppeteer/browsers install chrome@stable --path "$RUNNER_TEMP/cft" | tee cft.txt
-          echo "CHROME_PATH=$(tail -1 cft.txt | cut -d' ' -f2)" >> "$GITHUB_ENV"
+      # Browser E2E uses the runner's Google Chrome (H.264/AAC support for real playback tests)
       - run: npx playwright test
-      - name: Playback diagnostics (temporary)
-        if: failure()
-        run: |
-          node tools/mock-iptv/server.js & ALLOW_PRIVATE_NETWORKS=true node server/index.js & sleep 3
-          node tools/diag-playback.mjs
-          ffprobe -v error -show_entries stream=codec_name,profile,channels,sample_rate -of compact tools/mock-iptv/media/movie.mp4
-          lscpu | grep -iE 'model name|flags' | cut -c1-300
       - uses: actions/upload-artifact@v4
         if: failure()
         with: { name: playwright-results, path: test-results, retention-days: 7 }

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 tools/mock-iptv/media/
+tools/mock-iptv/media.tmp-*/
 test-results/
 playwright-report/
 *.log

@@ -24,16 +24,23 @@ const PASS = 'demo';
 
 function ensureMedia() {
   if (fs.existsSync(path.join(MEDIA, 'hls', 'index.m3u8'))) return;
-  fs.mkdirSync(path.join(MEDIA, 'hls'), { recursive: true });
+  // Several test workers may start a mock at once: render into a private temp dir
+  // and atomically rename it into place, so nobody ever reads a half-written file.
+  const tmp = `${MEDIA}.tmp-${process.pid}-${Date.now()}`;
+  fs.mkdirSync(path.join(tmp, 'hls'), { recursive: true });
   const src = ['-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000'];
   const enc = ['-c:v', 'libx264', '-preset', 'veryfast', '-profile:v', 'baseline', '-pix_fmt', 'yuv420p', '-g', '50', '-c:a', 'aac', '-ac', '2', '-ar', '48000', '-b:a', '128k'];
   console.log('Generating test media with ffmpeg…');
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...src, '-t', '40', ...enc, '-movflags', '+faststart',
-    // no edit list: some Chrome builds reject the AAC priming packet's negative timestamp
-    '-use_editlist', '0', path.join(MEDIA, 'movie.mp4')]);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...src, '-t', '40', ...enc, '-f', 'mpegts', path.join(MEDIA, 'live.ts')]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...src, '-t', '40', ...enc, '-movflags', '+faststart', path.join(tmp, 'movie.mp4')]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...src, '-t', '40', ...enc, '-f', 'mpegts', path.join(tmp, 'live.ts')]);
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', ...src, '-t', '40', ...enc, '-f', 'hls', '-hls_time', '4', '-hls_playlist_type', 'vod',
-    '-hls_segment_filename', path.join(MEDIA, 'hls', 'seg%03d.ts'), path.join(MEDIA, 'hls', 'index.m3u8')]);
+    '-hls_segment_filename', path.join(tmp, 'hls', 'seg%03d.ts'), path.join(tmp, 'hls', 'index.m3u8')]);
+  try {
+    fs.renameSync(tmp, MEDIA);
+  } catch {
+    // Another process won the race; its media is complete. Discard ours.
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------- catalogue
