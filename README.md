@@ -118,7 +118,7 @@ base64 -w0 release.jks   # -> GitHub secret PETETV_KEYSTORE_BASE64
 ```
 
 ### Releases
-Push a tag like `v0.1.0` (matching `package.json`). GitHub Actions runs all tests, builds the APK, attaches `PeteTV.apk` to a GitHub Release and publishes the Docker image to `ghcr.io`.
+Bump `version` in `package.json`, then either push a tag like `v0.1.0`, or run the **CI / Release** workflow manually (Actions tab → Run workflow → tick *release*). GitHub Actions runs all tests, builds the APK, attaches `PeteTV.apk` to a GitHub Release and publishes the Docker image to `ghcr.io`.
 
 ## License
 [MIT](LICENSE). Contributions welcome.
