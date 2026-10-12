@@ -1,6 +1,6 @@
 import { isNative, Native } from '../platform';
 import { push } from '../router';
-import { recordHistory, getItem } from '../store';
+import { recordHistory, getItem, historyEntry } from '../store';
 import type { PlayRequest, PlayResult } from '../types';
 
 /** Called by both the native and the web player when playback ends. */
@@ -8,6 +8,11 @@ export function onPlaybackEnded(req: PlayRequest, res: PlayResult) {
   const it = req.items[res.index];
   if (!it) return;
   const series = req.seriesId ? getItem(req.seriesId) : undefined;
+  // Closed before playback started: keep the previously saved resume point.
+  const prev = historyEntry(it.id);
+  if (req.kind !== 'live' && !(res.duration > 0) && prev?.position) {
+    res = { ...res, position: prev.position, duration: prev.duration || 0 };
+  }
   recordHistory({
     id: it.id,
     kind: req.kind,

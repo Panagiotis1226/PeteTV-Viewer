@@ -24,6 +24,7 @@ jobs:
       - run: npm test
       - run: npm run build
       # Browser E2E uses the runner's Google Chrome (H.264/AAC support for real playback tests)
+      - run: google-chrome --version
       - run: npx playwright test
       - uses: actions/upload-artifact@v4
         if: failure()

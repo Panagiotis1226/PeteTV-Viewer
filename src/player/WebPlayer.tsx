@@ -106,7 +106,11 @@ export function WebPlayer({ req }: { req: PlayRequest }) {
   }, [index, attempt]);
 
   const close = () => {
-    onPlaybackEnded({ ...req }, { index, position: posRef.current.cur, duration: posRef.current.dur });
+    // Read the element directly: a seek/resume may not have fired timeupdate yet.
+    const v = videoRef.current;
+    const position = v && v.currentTime > 0 ? v.currentTime : posRef.current.cur;
+    const duration = v && isFinite(v.duration) && v.duration > 0 ? v.duration : posRef.current.dur;
+    onPlaybackEnded({ ...req }, { index, position, duration });
     pop();
   };
 
