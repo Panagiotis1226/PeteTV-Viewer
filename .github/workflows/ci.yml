@@ -40,7 +40,9 @@ jobs:
         with: { node-version: 22, cache: npm }
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: 21, cache: gradle }
-      - uses: android-actions/setup-android@v3
+      # The runner image ships the Android SDK; accept licenses so Gradle can fetch platform/build-tools.
+      - name: Accept Android SDK licenses
+        run: yes | "$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)" --licenses > /dev/null
       - run: npm ci
       - run: npm run build && npx cap sync android
       - name: Use release signing key (if configured)
